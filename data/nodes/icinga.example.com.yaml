@@ -1,7 +1,8 @@
 ---
 classes:
-  - profile::monitoring::icinga::server
   - stdlib::manage
+  - profile::monitoring::icinga::server
+  - profile::monitoring::icinga::web
 
 ### Database ##################################################################
 mysql::server::root_password: 'strongpassword'
@@ -26,6 +27,15 @@ stdlib::manage::create_resources:
       grant:
         - ALL
       before: Class[Icinga2::Feature::Idomysql]
+    icingaweb2:
+      user: icingaweb2
+      password: icingaweb2
+      host: localhost
+      charset: 'utf8mb3'
+      collate: 'utf8mb3_general_ci'
+      grant:
+        - ALL
+      before: Class[Icingaweb2]
 
 ### Icinga2 Server ############################################################
 icinga2::features:
@@ -76,6 +86,30 @@ profile::monitoring::icinga::server::zones_d:
     recurse: true
     purge: true
     force: true
+
+### IcingaWeb2 #################################################################
+icingaweb2::config_backend: 'db'
+# icingaweb2::manage_repo: false
+icingaweb2::import_schema: true
+icingaweb2::db_type: mysql
+icingaweb2::db_host: localhost
+icingaweb2::db_port: 3306
+icingaweb2::db_username: icingaweb2
+icingaweb2::db_password: icingaweb2
+
+icingaweb2::module::monitoring::ido_host: localhost
+icingaweb2::module::monitoring::ido_db_name: icinga_ido
+icingaweb2::module::monitoring::ido_db_username: icinga_ido
+# icingaweb2::module::monitoring::ido_db_charset: latin1
+icingaweb2::module::monitoring::ido_db_password: icinga_ido
+
+icingaweb2::module::monitoring::commandtransports:
+  icinga2:
+    transport: api
+    username: root
+    password: icinga
+
+icingaweb2::config::authmethod::backend: 'db'
 
 ### Icinga2 Objects ###########################################################
 profile::monitoring::icinga::server::objects:
