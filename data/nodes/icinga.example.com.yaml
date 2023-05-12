@@ -1,0 +1,184 @@
+---
+classes:
+  - profile::monitoring::icinga::server
+  - stdlib::manage
+
+### Database ##################################################################
+mysql::server::root_password: 'strongpassword'
+mysql::server::remove_default_accounts: true
+mysql::server::restart: true
+mysql::server::override_options:
+  mysqld:
+    bind-address: '127.0.0.1'
+    pid-file: '/var/lib/mysql/mariadb.pid'
+    log-error: null
+    character-set-server: 'utf8'
+    collation-server: 'utf8_unicode_ci'
+
+stdlib::manage::create_resources:
+  mysql::db:
+    icinga_ido:
+      user: icinga_ido
+      password: icinga_ido
+      host: localhost
+      charset: 'utf8mb3'
+      collate: 'utf8mb3_general_ci'
+      grant:
+        - ALL
+      before: Class[Icinga2::Feature::Idomysql]
+
+### Icinga2 Server ############################################################
+icinga2::features:
+  - 'api'
+  - 'checker'
+  - 'idomysql'
+  - 'mainlog'
+  - 'notification'
+
+icinga2::constants:
+  NodeName: "%{trusted.certname}"
+  ZoneName: 'Main'
+
+icinga2::confd: false
+icinga2::manage_repos: true
+icinga2::manage_packages: true
+
+icinga2::feature::api::accept_config: false
+icinga2::feature::api::accept_commands: true
+
+icinga2::feature::api::pki: 'puppet'
+
+icinga2::feature::api::endpoints: { "%{trusted.certname}": {} }
+icinga2::feature::api::zones:
+  Main:
+    endpoints: [ "%{trusted.certname}" ]
+  global_zone:
+    global: true
+
+icinga2::feature::idomysql::database: 'icinga_ido'
+icinga2::feature::idomysql::user: 'icinga_ido'
+icinga2::feature::idomysql::password: 'icinga_ido'
+icinga2::feature::idomysql::import_schema: true
+
+### Icinga2 Zones #############################################################
+profile::monitoring::icinga::server::zones_d:
+  /etc/icinga2/zones.d/Main:
+    ensure: directory
+    mode: '0750'
+    recurse: true
+    purge: true
+    force: true
+    notify: Class[Icinga2::Service]
+
+  /etc/icinga2/zones.d/global_zone:
+    ensure: directory
+    mode: '0750'
+    recurse: true
+    purge: true
+    force: true
+
+### Icinga2 Objects ###########################################################
+profile::monitoring::icinga::server::objects:
+##### ApiUsers ################################################################
+  icinga2::object::apiuser:
+    root:
+      password: icinga
+      permissions:
+        - '*'
+
+##### Hosts ###################################################################
+  icinga2::object::host:
+    #### Templates
+    generic-host:
+      import: ~
+      max_check_attempts: 3
+      check_interval: '1m'
+      retry_interval: '30s'
+      check_command: hostalive
+      template: true
+      target: '/etc/icinga2/zones.d/global_zone/templates.conf'
+
+    #### Real Hosts
+    # The main server itself
+    "%{facts.fqdn}":
+      address: '127.0.0.1'
+      vars:
+        client_endpoint: "%{facts.fqdn}"
+        disks:
+          disk: {}
+
+##### Services ################################################################
+  icinga2::object::service:
+    #### Templates
+    generic-service:
+      import: ~
+      max_check_attempts: 5
+      check_interval: '1m'
+      retry_interval: '30s'
+      template: true
+      target: '/etc/icinga2/zones.d/global_zone/templates.conf'
+
+##### UserGroups ##############################################################
+  icinga2::object::usergroup:
+    icingaadmins:
+      display_name: 'Icinga 2 Admin Group'
+
+##### Users ###################################################################
+  icinga2::object::user:
+    #### Templates
+    generic-user:
+      import: ~
+      template: true
+      target: '/etc/icinga2/zones.d/global_zone/templates.conf'
+
+    #### Real Users
+    icingaadmin:
+      display_name: 'Icinga 2 Admin'
+      groups:
+        - 'icingaadmins'
+      email: 'icinga@localhost'
+
+##### Defaults ################################################################
+profile::monitoring::icinga::server::defaults:
+  icinga2::object::apiuser:
+    target: '/etc/icinga2/zones.d/Main/apiusers.conf'
+
+  icinga2::object::host:
+    import:
+      - 'generic-host'
+    target: '/etc/icinga2/zones.d/Main/hosts.conf'
+
+  icinga2::object::notification:
+    target: '/etc/icinga2/zones.d/global_zone/notifications.conf'
+
+  icinga2::object::notificationcommand:
+    target: '/etc/icinga2/zones.d/global_zone/commands.conf'
+
+  icinga2::object::service:
+    import:
+      - 'generic-service'
+    command_endpoint: 'host.vars.client_endpoint'
+    target: '/etc/icinga2/zones.d/global_zone/services.conf'
+
+  icinga2::object::checkcommand:
+    target: '/etc/icinga2/zones.d/global_zone/commands.conf'
+
+  icinga2::object::eventcommand:
+    target: '/etc/icinga2/zones.d/global_zone/commands.conf'
+
+  icinga2::object::timeperiod:
+    target: '/etc/icinga2/zones.d/global_zone/timeperiods.conf'
+
+  icinga2::object::user:
+    import:
+      - generic-user
+    target: '/etc/icinga2/zones.d/global_zone/users.conf'
+
+  icinga2::object::usergroup:
+    target: '/etc/icinga2/zones.d/global_zone/usergroups.conf'
+
+  icinga2::object::hostgroup:
+    target: '/etc/icinga2/zones.d/global_zone/hostgroup.conf'
+
+  icinga2::object::dependency:
+    target: '/etc/icinga2/zones.d/global_zone/dependencies.conf'
