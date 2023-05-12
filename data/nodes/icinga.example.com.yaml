@@ -152,6 +152,56 @@ profile::monitoring::icinga::server::objects:
       template: true
       target: '/etc/icinga2/zones.d/global_zone/templates.conf'
 
+    #### Real Services
+    disk:
+      check_command: disk
+      apply: 'disk => config in host.vars.disks'
+      vars:
+        - disk_wfree: "10%"
+        - disk_cfree: "5%"
+        - '+ config'
+      assign:
+        - host.vars.client_endpoint
+
+    icinga:
+      check_command: icinga
+      command_endpoint: host.vars.client_endpoint
+      apply: true
+      assign:
+        - host.vars.client_endpoint
+
+    load:
+      check_command: load
+      apply: true
+      vars:
+        load_percpu: true
+      assign:
+        - host.vars.client_endpoint
+
+    procs:
+      check_command: procs
+      apply: true
+      vars:
+        procs_warning: 1900
+        procs_critical: 2500
+      assign:
+        - host.vars.client_endpoint
+
+    swap:
+      check_command: swap
+      apply: true
+      vars:
+        swap_wfree: 10
+        swap_cfree: 5
+      assign:
+        - host.vars.client_endpoint
+
+    users:
+      check_command: users
+      apply: true
+      assign:
+        - host.vars.client_endpoint
+
 ##### UserGroups ##############################################################
   icinga2::object::usergroup:
     icingaadmins:
