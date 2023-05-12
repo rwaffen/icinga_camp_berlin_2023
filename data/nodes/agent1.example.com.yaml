@@ -1,0 +1,7 @@
+---
+classes:
+  - profile::monitoring::icinga::agent
+  - profile::monitoring::icinga::exported
+
+# profile::monitoring::icinga::exported::address: "%{facts.networking.interfaces.enp0s8.ip}"
+# profile::monitoring::icinga::exported::address6: "%{facts.networking.interfaces.enp0s8.ip6}"
